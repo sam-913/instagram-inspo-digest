@@ -1,1 +1,1 @@
-# instagram-inspo-digest
+# Instagram Inspo Digest
