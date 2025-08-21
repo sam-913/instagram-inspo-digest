@@ -1,0 +1,13 @@
+psycopg2-binary
+pillow>=10.3.0
+pytesseract>=0.3.10
+schedule
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sentence-transformers>=3.0.0
+python-multipart>=0.0.9
+openai
+tiktoken
+requests>=2.31.0
+transformers>=4.40.0
+torch>=2.2.0
