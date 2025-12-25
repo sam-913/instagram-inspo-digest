@@ -30,6 +30,8 @@ This project demonstrates a **production-minded hybrid automation model**:
 This mirrors how real media, marketing, and AI-assisted content teams work.
 
 ---
+![Project Plan](<img2.png>)
+---
 
 ## 🏗 Architecture Overview
 
@@ -162,5 +164,3 @@ Creative technologist exploring ethical AI + content automation
 ---
 
 > _“Automation should amplify creativity — not replace judgment.”_
-
-
