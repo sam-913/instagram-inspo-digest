@@ -1,25 +1,22 @@
 # src/api.py
-import warnings
-warnings.filterwarnings("ignore")
 
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import RootModel
-from contextlib import asynccontextmanager
-from typing import List
-from datetime import date
 import os
+import uuid
+from typing import List
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from src.db import init_db, save_digest, fetch_digest
 from src.ocr import extract_and_clean
-from src.filters import ethical_check
-from src.dedupe import dedupe_texts
 from src.summarizer import summarize_texts
+from src.dedupe import dedupe_texts
+from src.filters import ethical_check
 from src.card import render_quote_card
-from src.db import init_db, save_digest
-
-CARDS_DIR = "cards"
-TEMPLATES = ["template_A.png", "template_B.png"]
 
 
+# ---------- Lifespan ----------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -29,79 +26,120 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Instagram Inspo Digest API", lifespan=lifespan)
 
 
-class ImageURLs(RootModel[List[str]]):
-    pass
+# ---------- Models ----------
+class DigestInput(BaseModel):
+    urls: List[str]
 
 
+class RenderRequest(BaseModel):
+    digest_id: int
+
+
+# ---------- Health ----------
 @app.get("/")
 def root():
     return {"status": "ok"}
 
 
+# ---------- Step 1: Create Digest ----------
 @app.post("/digest")
-async def digest_endpoint(urls: ImageURLs):
-    texts = []
+def create_digest(urls: List[str]):
+    results = []
+    approved_texts = []
 
-    for url in urls.root:
-        raw = extract_and_clean(url)
-        ok, _ = ethical_check(raw)
-        if ok and raw:
-            texts.append(raw)
+    for idx, url in enumerate(urls):
+        entry = {
+            "index": idx,
+            "url": url,
+            "text": None,
+            "passed_ethics": False,
+            "used_in_digest": False,
+            "error": None,
+        }
 
-    if not texts:
-        raise HTTPException(status_code=400, detail="No valid text")
+        try:
+            text = extract_and_clean(url)
 
-    uniq, _ = dedupe_texts(texts)
-    digest = summarize_texts(uniq)
-    digest_id = save_digest(",".join(urls.root), digest)
+            if not text:
+                entry["error"] = "Empty OCR result"
+                results.append(entry)
+                continue
+
+            ok, reason = ethical_check(text)
+            entry["passed_ethics"] = ok
+
+            if not ok:
+                entry["error"] = reason
+                results.append(entry)
+                continue
+
+            entry["text"] = text
+            entry["used_in_digest"] = True
+            approved_texts.append(text)
+            results.append(entry)
+
+        except Exception as e:
+            entry["error"] = str(e)
+            results.append(entry)
+
+    if not approved_texts:
+        raise HTTPException(status_code=400, detail="No valid texts")
+
+    unique_texts, _ = dedupe_texts(approved_texts, sim_threshold=0.9)
+    digest_text = summarize_texts(unique_texts)
+
+    digest_id = save_digest(",".join(urls), digest_text)
 
     return {
         "id": digest_id,
-        "digest": digest,
-        "sources": uniq,
+        "digest": digest_text,
+        "sources": unique_texts,
+        "stats": {
+            "total_urls": len(urls),
+            "passed_ethics": sum(1 for r in results if r["passed_ethics"]),
+            "failed_ethics": sum(1 for r in results if not r["passed_ethics"]),
+            "deduplicated": len(approved_texts) - len(unique_texts),
+        },
+        "details": results,
     }
 
 
-@app.post("/daily-pack")
-async def daily_pack(urls: List[str] = Body(...)):
-    texts = []
+# ---------- Step 4: Render Cards ----------
+@app.post("/render-cards")
+def render_cards(payload: RenderRequest):
+    row = fetch_digest(payload.digest_id)
 
-    for url in urls:
-        raw = extract_and_clean(url)
-        ok, _ = ethical_check(raw)
-        if ok and raw:
-            texts.append(raw)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Digest not found")
 
-    uniq, _ = dedupe_texts(texts)
+    urls_str, digest_text = row
 
-    if len(uniq) < 1:
-        raise HTTPException(status_code=400, detail="No valid quotes")
+    sentences = [
+        s.strip()
+        for s in digest_text.split(".")
+        if len(s.strip()) > 8
+    ]
 
-    quotes = uniq[:4]
-    today = date.today().isoformat()
-    out_dir = os.path.join(CARDS_DIR, today)
+    if not sentences:
+        raise HTTPException(status_code=400, detail="No usable sentences")
 
-    results = []
+    os.makedirs("cards", exist_ok=True)
+    outputs = []
 
-    for i, quote in enumerate(quotes):
-        cards = []
-        for template in TEMPLATES:
-            filename = f"quote_{i+1}_{template.replace('.png','')}.png"
-            path = os.path.join(out_dir, filename)
-            render_quote_card(
-                text=quote,
-                template_name=template,
-                out_path=path,
-            )
-            cards.append(path)
+    for i, sentence in enumerate(sentences):
+        template = "A" if i % 2 == 0 else "B"
+        filename = f"cards/card_{payload.digest_id}_{template}_{i}.png"
 
-        results.append({
-            "quote": quote,
-            "cards": cards,
-        })
+        render_quote_card(
+            sentence,
+            out_path=filename,
+            template=template
+        )
+
+        outputs.append(filename)
 
     return {
-        "date": today,
-        "count": len(results),
-        "editor_pack": results,
+        "status": "ok",
+        "generated": len(outputs),
+        "files": outputs,
     }
