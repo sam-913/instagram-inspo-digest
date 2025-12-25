@@ -94,7 +94,9 @@ Each run generates a daily *Editor Pack*:
 - 2 visual templates (A/B)
 - High-resolution PNGs (1080×1350)
 
-These can be manually posted to Instagram or scheduled via approved tools.
+These can be manually posted to Instagram or scheduled via approved tools. Like this one:
+
+![Example Quote](<img.png>)
 
 ---
 
@@ -145,6 +147,20 @@ curl -X POST http://127.0.0.1:8000/render-cards \
 
 - **Multi-language support**
 
+---
 
+### 👩‍💻 Author
+
+**Samriddhi Sharma**  
+Computer Science Engineer | Applied ML & Data Science  
+Creative technologist exploring ethical AI + content automation
+
+- 🌐 GitHub: https://github.com/sam-913/
+- 💼 LinkedIn: https://www.linkedin.com/in/samriddhi-sharma-b312a5222/
+- 🖋️ Medium: https://medium.com/@samriddhisharma.vis 
+
+---
+
+> _“Automation should amplify creativity — not replace judgment.”_
 
 
