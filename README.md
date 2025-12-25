@@ -80,7 +80,7 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn src.api:app --reload
-
+```
 
 
 Automation & scheduling handled via **n8n**.
@@ -117,29 +117,34 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn src.api:app --reload
+```
 
-Create a digest:
+## Create a digest:
 
+```bash
 curl -X POST http://127.0.0.1:8000/digest \
   -H "Content-Type: application/json" \
   -d '["IMAGE_URL_1", "IMAGE_URL_2"]'
+```
 
-Render quote cards:
+## Render quote cards:
 
+```bash
 curl -X POST http://127.0.0.1:8000/render-cards \
   -H "Content-Type: application/json" \
   -d '{"digest_id": 1}'
+```
 
-📌 Future Extensions (Not Implemented)
+## 📌 Future Extensions (Not Implemented)
 
-Canva API integration
+- **Canva API integration**
 
-Caption generation
+- **Caption generation**
 
-Engagement analytics
+- **Engagement analytics**
 
-Multi-language support
+- **Multi-language support**
 
-A/B performance testing
+
 
 
